@@ -1,25 +1,14 @@
-// ── Seeded PRNG (mulberry32) ─────────────────────────────────────────────────
-// Gives the same sequence for the same seed — deterministic across all devices.
-function createRng(seed: number) {
-  let s = seed >>> 0
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0
-    let t = Math.imul(s ^ (s >>> 15), 1 | s)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 0x100000000
-  }
+import { createRng, shuffle } from './rng'
+import type { Difficulty } from '../types'
+
+export type { Difficulty }
+export { dateToSeed } from './rng'
+
+export interface PuzzleResult {
+  puzzle: number[][]
+  solution: number[][]
 }
 
-function shuffle<T>(arr: T[], rng: () => number): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-// ── Sudoku logic ─────────────────────────────────────────────────────────────
 function isValid(board: number[][], row: number, col: number, num: number): boolean {
   if (board[row].includes(num)) return false
   for (let r = 0; r < 9; r++) if (board[r][col] === num) return false
@@ -50,34 +39,18 @@ function fillBoard(board: number[][], rng: () => number): boolean {
   return true
 }
 
-const CELLS_TO_REMOVE = { easy: 30, medium: 45, hard: 55 } as const
-export type Difficulty = keyof typeof CELLS_TO_REMOVE
-
-export interface PuzzleResult {
-  puzzle: number[][]
-  solution: number[][]
-}
+const CELLS_TO_REMOVE: Record<Difficulty, number> = { easy: 30, medium: 45, hard: 55 }
 
 export function generateSudoku(seed: number, difficulty: Difficulty): PuzzleResult {
   const rng = createRng(seed)
   const board: number[][] = Array.from({ length: 9 }, () => Array(9).fill(0))
   fillBoard(board, rng)
-
   const solution = board.map((row) => [...row])
-
   const positions = shuffle(
     Array.from({ length: 81 }, (_, i) => [Math.floor(i / 9), i % 9] as [number, number]),
     rng,
   )
-
   const puzzle = board.map((row) => [...row])
-  for (const [r, c] of positions.slice(0, CELLS_TO_REMOVE[difficulty])) {
-    puzzle[r][c] = 0
-  }
-
+  for (const [r, c] of positions.slice(0, CELLS_TO_REMOVE[difficulty])) puzzle[r][c] = 0
   return { puzzle, solution }
-}
-
-export function dateToSeed(dateStr: string): number {
-  return parseInt(dateStr.replace(/-/g, ''), 10)
 }
